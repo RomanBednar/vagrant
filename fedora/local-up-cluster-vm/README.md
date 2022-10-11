@@ -1,6 +1,6 @@
 # How to run local Kubernetes cluster using Vagrant
 
-## 1. Configure Vagrant 
+## Configure Vagrant 
 (*tested on Fedora 35+ host with kvm*)
 
 ### Configure libvirt provisioner on your host
@@ -10,11 +10,11 @@ Follow this guide: https://developer.fedoraproject.org/tools/vagrant/vagrant-lib
 
 Follow this guide: https://developer.fedoraproject.org/tools/vagrant/vagrant-nfs.html
 
-## 2. Provision VM with Vagrant (requires sudo for NFS export configuration)
+## Provision VM with Vagrant (requires sudo for NFS export configuration)
 ```
 $ sudo vagrant up
 ```
-## 3. Go to kubernetes source dir
+## Go to kubernetes source dir
 Vagrant will mount your home directory under /mnt/home so make sure you have 
 Kubernetes source code somewhere in home, then cd to this dir.
 ```
@@ -22,28 +22,28 @@ $ vagrant ssh
 $ cd /mnt/home/<kube_dir>
 ```
 
-## 4. Install etcd and add it to $PATH (the script will provide path to etcd)
+## Install etcd and add it to $PATH (the script will provide path to etcd)
 ```
 $ ./hack/install-etcd.sh
 
 $ export PATH="<path_to_etcd>:${PATH}"
 ```
 
-## 5. Clean up any leftovers from previous run
+## Clean up any leftovers from previous run
 ```
 $ sudo rm -rf /tmp/kube* /var/run/kubernetes/* /var/lib/kubelet/*
 ```
 
-## 6. (optional) Unmount devices if you see "Device or resource busy" errors
+## (optional) Unmount devices if you see "Device or resource busy" errors
 ```
 $ sudo umount /var/lib/kubelet/pods/<PATH_TO_BUSY_DEVICE>
 ```
-## 7. (optional) Enable custom FeatureGate
+## (optional) Enable custom FeatureGate
 ```
 $ export FEATURE_GATES="RetroactiveDefaultStorageClass=true"
 ```
 
-## 8. Start Kubernetes cluster
+## Start Kubernetes cluster
 ```
 $ ALLOW_PRIVILEGED=true LOG_LEVEL=5 ./hack/local-up-cluster.sh
 ```

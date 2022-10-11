@@ -1,0 +1,11 @@
+---
+## Example kubeadm configuration for enabling a feature gate.
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+apiServer:
+  extraArgs:
+    feature-gates: RetroactiveDefaultStorageClass=true
+controllerManager:
+  extraArgs:
+    cluster-cidr: 10.244.0.0/16
+    feature-gates: RetroactiveDefaultStorageClass=true

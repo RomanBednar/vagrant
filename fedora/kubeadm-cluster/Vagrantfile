@@ -1,0 +1,156 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# All Vagrant configuration is done below. The "2" in Vagrant.configure
+# configures the configuration version (we support older styles for
+# backwards compatibility). Please don't change it unless you know what
+# you're doing.
+#
+Vagrant.configure("2") do |config|
+  # The most common configuration options are documented and commented below.
+  # For a complete reference, please see the online documentation at
+  # https://docs.vagrantup.com.
+
+  # Every Vagrant development environment requires a box. You can search for
+  # boxes at https://atlas.hashicorp.com/search.
+  config.vm.box = "fedora/35-cloud-base"
+
+  # Disable automatic box update checking. If you disable this, then
+  # boxes will only be checked for updates when the user runs
+  # `vagrant box outdated`. This is not recommended.
+  # config.vm.box_check_update = false
+
+  # Create a forwarded port mapping which allows access to a specific port
+  # within the machine from a port on the host machine. In the example below,
+  # accessing "localhost:8080" will access port 80 on the guest machine.
+  # config.vm.network "forwarded_port", guest: 80, host: 8080
+
+  # Create a private network, which allows host-only access to the machine
+  # using a specific IP.
+  # config.vm.network "private_network", ip: "192.168.33.10"
+
+  # Create a public network, which generally matched to bridged network.
+  # Bridged networks make the machine appear as another physical device on
+  # your network.
+  # config.vm.network "public_network"
+
+  # Share an additional folder to the guest VM. The first argument is
+  # the path on the host to the actual folder. The second argument is
+  # the path on the guest to mount the folder. And the optional third
+  # argument is a set of non-required options.
+  # config.vm.synced_folder "../data", "/vagrant_data"
+  config.vm.synced_folder "#{Dir.home}", "/mnt/home", type: 'nfs', nfs_udp: false
+
+  config.vm.synced_folder "./clusterconf-examples", "/mnt/clusterconf-examples", type: 'nfs', nfs_udp: false
+
+  config.vm.provision "file", source: "./clusterconf.yaml" , destination: "~/clusterconf.yaml"
+
+  # Provider-specific configuration so you can fine-tune various
+  # backing providers for Vagrant. These expose provider-specific options.
+  config.vm.provider "libvirt" do |libvirt|
+    libvirt.memory = "8192"
+    libvirt.cpus = 4
+  end
+
+  # Enable provisioning with a shell script. Additional provisioners such as
+  # Ansible, Chef, Docker, Puppet and Salt are also available. Please see the
+  # documentation for more information about their specific syntax and use.
+  config.vm.provision :shell, privileged: false, inline: <<-SHELL
+  # 1. System configuration
+
+    ## kubelet does not support swap by default - turn it off
+  sudo yum remove -y zram-generator-defaults
+  sudo swapoff -a
+
+    ## disable selinux
+  sudo setenforce 0
+  sudo bash -c "echo SELINUX=permissive >/etc/selinux/config"
+
+    ## update system and install useful packages
+  sudo yum update -y
+  sudo yum install -y helm jq mc vim gdb strace nfs-utils net-tools xfsprogs docker tmux git make wget bind-utils nfs-utils curl openssl gcc psmisc iscsi-initiator-utils bash-completion
+
+
+    ## install and enable cri-o
+  sudo yum module enable -y cri-o:1.22
+  sudo yum install -y cri-o cri-tools
+  sudo systemctl enable --now crio
+
+    ## remove containerd so it's not detected by kubeadm
+  sudo yum remove -y containerd
+
+    ## network configuration required by kubeadm
+  sudo sh -c 'echo 1 > /proc/sys/net/ipv4/ip_forward'
+  cat <<'EOF' > /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+  sudo sysctl --system
+
+    ## loading netfilter used to be done by docker but with cri-o we need to do it manually
+  sudo modprobe br_netfilter
+
+  # 2. Configure Go
+
+    ## use `gimme` to obtain latest Go
+  mkdir ~/bin || :
+  curl -sL -o ~/bin/gimme https://raw.githubusercontent.com/travis-ci/gimme/master/gimme
+  chmod +x ~/bin/gimme
+  gimme stable >> ~/.bashrc
+  echo "export GOPATH=~/go" >> ~/.bashrc
+
+  # 3. Configure kubectl, kubelet, kubeadm
+
+    ## TODO: change repo from el7 to el8 and test it
+  cat <<'EOF' | sudo tee /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-$basearch
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+
+    ## install packages and start kubelet
+  if [[ -z '#{ENV['KUBELET_PACKAGE']}' ]]; then
+    export KUBELET=kubelet
+  else
+    export KUBELET=#{ENV['KUBELET_PACKAGE']}
+  fi
+  if [[ -z '#{ENV['KUBEADM_PACKAGE']}' ]]; then
+    export KUBEADM=kubeadm
+  else
+    export KUBEADM=#{ENV['KUBEADM_PACKAGE']}
+  fi
+
+  sudo yum install -y $KUBELET $KUBEADM kubectl
+  sudo systemctl enable --now kubelet
+
+    ## execute kubeadm with custom config
+  sudo kubeadm init --config ~/clusterconf.yaml
+  sudo chmod 755 /etc/kubernetes/admin.conf
+  kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+  kubectl --kubeconfig=/etc/kubernetes/admin.conf taint nodes --all node-role.kubernetes.io/master-kubectl taint nodes --all node-role.kubernetes.io/master- node-role.kubernetes.io/control-plane:NoSchedule-
+  install -o 1000 -d /home/$(id -nu 1000)/.kube
+  install -o 1000 /etc/kubernetes/admin.conf /home/$(id -nu 1000)/.kube/config
+    ## TODO: find where kubeadm logs
+    ##sudo sh -c 'echo "See <LOG_FILE> for instructions on how to connect to kubeadm cluster" > /etc/motd'
+
+    ## configure csi-driver-host-path and example pvc/pod/sc
+  git clone https://github.com/kubernetes-csi/csi-driver-host-path.git ~/csi-driver-host-path
+  echo "export KUBECONFIG=/etc/kubernetes/admin.conf" >> ~/.bashrc
+  source ~/.bashrc
+  ~/csi-driver-host-path/deploy/kubernetes-latest/deploy.sh
+  for i in ~/csi-driver-host-path/examples/csi-storageclass.yaml ~/csi-driver-host-path/examples/csi-pvc.yaml ~/csi-driver-host-path/examples/csi-app.yaml; do kubectl apply -f $i; done
+
+  # 4. Setup kubectl alias and bash completion
+
+  echo "alias kc=$(which kubectl)" >> ~/.bashrc
+  echo "source <(kubectl completion bash)" >> ~/.bashrc
+
+    ## make kc alias work with completion
+  git clone https://github.com/cykerway/complete-alias.git ~/complete-alias
+  echo "source $HOME/complete-alias/complete_alias" >> ~/.bashrc
+
+  SHELL
+end
