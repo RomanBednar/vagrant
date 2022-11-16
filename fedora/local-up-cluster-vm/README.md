@@ -10,9 +10,12 @@ Follow this guide: https://developer.fedoraproject.org/tools/vagrant/vagrant-lib
 
 Follow this guide: https://developer.fedoraproject.org/tools/vagrant/vagrant-nfs.html
 
-## Provision VM with Vagrant (requires sudo for NFS export configuration)
+## Provision VM with Vagrant
+
+Do not run with sudo otherwise `vagrant ssh` with normal user.
+Creating VM with sudo will require `sudo vagrant ssh` to connect and result in mounting root home dir instead.
 ```
-$ sudo vagrant up
+$ vagrant up
 ```
 ## Go to kubernetes source dir
 Vagrant will mount your home directory under /mnt/home so make sure you have 
