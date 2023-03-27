@@ -1,0 +1,1 @@
+Experimental docker provisioner Vagrant setup for running intel Fedora image on OSX.
