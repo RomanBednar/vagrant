@@ -58,7 +58,7 @@ Vagrant.configure("2") do |config|
   sudo bash -c "echo SELINUX=permissive >/etc/selinux/config"
 
   sudo yum update -y
-  sudo yum install -y mc vim gdb strace nfs-utils net-tools xfsprogs docker tmux git make wget bind-utils nfs-utils curl openssl gcc psmisc podman iscsi-initiator-utils bash-completion jq
+  sudo yum install -y ps mc vim gdb strace nfs-utils net-tools xfsprogs docker tmux git make wget bind-utils nfs-utils curl openssl gcc psmisc podman iscsi-initiator-utils bash-completion jq
 
   sudo yum module enable -y cri-o:1.22
   sudo yum install -y cri-o cri-tools
