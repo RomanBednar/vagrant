@@ -1,0 +1,56 @@
+ENV['VAGRANT_DEFAULT_PROVIDER'] = 'docker'
+
+Vagrant.configure("2") do |config|
+  config.vm.hostname = "fedora"
+
+  config.vm.provider :docker do |docker, override|
+    override.vm.box = nil
+    docker.build_dir = "."
+    docker.build_args = ['--platform=linux/amd64']
+    docker.has_ssh = true
+    docker.privileged = true
+    docker.remains_running = true
+    docker.volumes = ["/sys/fs/cgroup:/sys/fs/cgroup:ro", "/var/run/docker.sock:/var/run/docker.sock", "/Users/rbednar/git/:/mnt/git:rw"]
+    docker.create_args = ["--cgroupns=host"]
+    # Uncomment to force platform
+    docker.create_args = ['--platform=linux/amd64']
+  end
+
+    # Enable provisioning with a shell script. Additional provisioners such as
+    # Ansible, Chef, Docker, Puppet and Salt are also available. Please see the
+    # documentation for more information about their specific syntax and use.
+    config.vm.provision :shell, privileged: false, inline: <<-SHELL
+
+    # System configuration (runs as root)
+    sudo setenforce 0
+    sudo bash -c "echo SELINUX=permissive >/etc/selinux/config"
+
+    sudo yum update -y
+    sudo yum install -y mc vim gdb strace nfs-utils net-tools xfsprogs docker tmux git make wget bind-utils nfs-utils curl openssl gcc psmisc podman iscsi-initiator-utils bash-completion jq
+
+    # Configure kubectl
+    cat <<'EOF' | sudo tee /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-$basearch
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+
+    sudo yum install -y kubectl
+
+    # Configure Go
+    mkdir ~/bin || :
+    curl -sL -o ~/bin/gimme https://raw.githubusercontent.com/travis-ci/gimme/master/gimme
+    chmod +x ~/bin/gimme
+    gimme stable >> ~/.bashrc
+    echo "export GOPATH=~/go" >> ~/.bashrc
+
+    # Setup kc alias and bash completion
+    echo "alias kc=$(which kubectl)" >> ~/.bashrc
+    echo "source <(kubectl completion bash)" >> ~/.bashrc
+
+    SHELL
+
+end
