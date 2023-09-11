@@ -250,3 +250,20 @@ $ kc delete pod/csi-hostpathplugin-0
 ```
 
 Source: https://stackoverflow.com/a/61544151
+
+## Flannel failing to create pod network
+
+`Warning  FailedCreatePodSandBox  5s    kubelet            Failed to create pod sandbox: rpc error: code = Unknown desc = failed to create pod network sandbox k8s_csi-hostpathplugin-0_default_e5347532-bb23-4aff-b179-9a6cffc4c8be_0(d7598d6197c3b5903bed879991f92bd1c923c99ebe900a5bf72f100e27a1aaae): error adding pod default_csi-hostpathplugin-0 to CNI network "cbr0": loadFlannelSubnetEnv failed: open /run/flannel/subnet.env: no such file or directory`
+
+Fix it by manually adding the file:
+
+`/run/flannel/subnet.env`
+
+```
+FLANNEL_NETWORK=10.244.0.0/16
+FLANNEL_SUBNET=10.244.0.1/24
+FLANNEL_MTU=1450
+FLANNEL_IPMASQ=true
+```
+
+Source: https://github.com/kubernetes/kubernetes/issues/70202#issuecomment-481173403

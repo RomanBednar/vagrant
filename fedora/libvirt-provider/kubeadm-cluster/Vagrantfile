@@ -130,7 +130,10 @@ EOF
   sudo kubeadm init --config ~/clusterconf.yaml
   sudo chmod 755 /etc/kubernetes/admin.conf
   kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+    ##Remove taint from control plane nodes to allow scheduling (required for singlenode)
   kubectl --kubeconfig=/etc/kubernetes/admin.conf taint nodes --all node-role.kubernetes.io/master-kubectl taint nodes --all node-role.kubernetes.io/master- node-role.kubernetes.io/control-plane:NoSchedule-
+  kubectl --kubeconfig=/etc/kubernetes/admin.conf taint nodes --all node-role.kubernetes.io/control-plane-
+
   install -o 1000 -d /home/$(id -nu 1000)/.kube
   install -o 1000 /etc/kubernetes/admin.conf /home/$(id -nu 1000)/.kube/config
     ## TODO: find where kubeadm logs
