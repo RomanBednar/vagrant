@@ -10,6 +10,12 @@ Follow this guide: https://developer.fedoraproject.org/tools/vagrant/vagrant-lib
 
 Follow this guide: https://developer.fedoraproject.org/tools/vagrant/vagrant-nfs.html
 
+### Check out kubernetes source code on host machine
+
+```
+$ git clone git@github.com:kubernetes/kubernetes.git ~/git/kubernetes
+```
+
 ## Provision VM with Vagrant
 
 Do not run with sudo otherwise `vagrant ssh` with normal user.
